@@ -1,0 +1,44 @@
+.tray {
+  position: relative;
+  display: block;
+  align-self: start;
+  min-height: 0;
+  padding: 0.8rem;
+  border-radius: 1.6rem;
+  background: rgba(56, 37, 18, 0.92);
+  color: #f9e7c4;
+  box-shadow: 0 1.2rem 2rem rgba(39, 23, 10, 0.16);
+}
+
+.tray-grid {
+  position: relative;
+  min-height: clamp(12rem, 31vh, 17rem);
+  height: auto;
+  border-radius: 1.15rem;
+  background:
+    linear-gradient(180deg, rgba(24, 16, 8, 0.38), rgba(11, 8, 4, 0.16)),
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.04),
+      rgba(255, 255, 255, 0.04) 1px,
+      transparent 1px,
+      transparent 24px
+    );
+}
+
+@media (max-width: 960px) {
+  .tray {
+    min-height: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .tray {
+    padding: 0.7rem;
+    min-height: 0;
+  }
+
+  .tray-grid {
+    min-height: 9.25rem;
+  }
+}

@@ -1,0 +1,34 @@
+.board-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.2rem;
+  font-family: var(--font-base);
+  font-size: clamp(0.76rem, 1.28vw, 1.06rem);
+  color: rgba(10, 7, 5, 0.9);
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  text-align: center;
+  z-index: 1;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.board-cell-month,
+.board-cell-weekday,
+.board-cell-day {
+  background: rgba(255, 243, 216, 0.08);
+}
+
+.board-cell-target {
+  color: #000;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-shadow: none;
+}
+
+.board-cell-void {
+  background: rgba(51, 31, 14, 0.88);
+  box-shadow: inset 0 0 0 1px rgba(15, 10, 5, 0.35);
+}

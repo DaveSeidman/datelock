@@ -1,0 +1,49 @@
+.controls-timer-inline {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.34rem;
+  margin-left: auto;
+  padding-left: 0.58rem;
+  border-left: 1px solid rgba(59, 38, 19, 0.16);
+  color: rgba(42, 27, 12, 0.88);
+  white-space: nowrap;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.controls-timer-inline span {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: rgba(94, 67, 35, 0.72);
+}
+
+.controls-timer-inline strong {
+  font-size: 0.94rem;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.controls-timer-inline-running {
+  color: rgba(42, 27, 12, 0.92);
+}
+
+.controls-timer-inline-solved {
+  color: #5d3718;
+}
+
+@media (max-width: 640px) {
+  .controls-timer-inline {
+    gap: 0.24rem;
+    padding-left: 0.42rem;
+  }
+
+  .controls-timer-inline span {
+    font-size: 0.56rem;
+  }
+
+  .controls-timer-inline strong {
+    font-size: 0.8rem;
+  }
+}

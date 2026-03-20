@@ -1,0 +1,120 @@
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+  margin-bottom: 0;
+  padding: 0.55rem 0.75rem;
+  background: rgba(255, 248, 235, 0.7);
+  border: 1px solid rgba(66, 40, 17, 0.16);
+  border-radius: 1.25rem;
+  backdrop-filter: blur(10px);
+}
+
+.controls-summary {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 1;
+}
+
+.controls-field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.controls-field span {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #694d2a;
+}
+
+.controls-field select,
+.controls-button {
+  min-height: 3rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(59, 38, 19, 0.18);
+  background: rgba(255, 250, 241, 0.92);
+  padding: 0.75rem 0.9rem;
+}
+
+.controls-field-static {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 2.5rem;
+  flex: 1;
+  min-width: 0;
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(59, 38, 19, 0.18);
+  background: rgba(255, 250, 241, 0.92);
+}
+
+.controls-field-static strong {
+  display: block;
+  font-family: var(--font-base);
+  font-size: 1.05rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+.controls-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-shrink: 0;
+}
+
+.controls-button {
+  cursor: pointer;
+  font-weight: 700;
+  min-height: 2.5rem;
+  padding: 0.55rem 0.8rem;
+  white-space: nowrap;
+  background: linear-gradient(180deg, #f6d59f, #d7a35a);
+  color: #21170f;
+  box-shadow: 0 0.45rem 1rem rgba(72, 45, 16, 0.12);
+}
+
+.controls-button-muted {
+  background: rgba(255, 250, 241, 0.92);
+}
+
+@media (max-width: 640px) {
+  .controls {
+    gap: 0.45rem;
+    padding: 0.4rem 0.45rem;
+    margin: 0 0.2rem;
+  }
+
+  .controls-summary {
+    min-width: 0;
+  }
+
+  .controls-field-static {
+    gap: 0.45rem;
+    padding: 0.45rem 0.55rem;
+  }
+
+  .controls-field span {
+    font-size: 0.72rem;
+  }
+
+  .controls-field-static strong {
+    font-size: 0.9rem;
+    letter-spacing: 0.06em;
+  }
+
+  .controls-actions {
+    gap: 0.35rem;
+  }
+
+  .controls-button {
+    min-height: 2.15rem;
+    padding: 0.42rem 0.6rem;
+    font-size: 0.8rem;
+  }
+}

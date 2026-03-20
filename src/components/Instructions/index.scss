@@ -1,0 +1,49 @@
+.status {
+  margin: 0;
+  width: 100%;
+  padding: 0.7rem 0.85rem;
+  border-radius: 1rem;
+  background: rgba(255, 249, 238, 0.8);
+  border: 1px solid rgba(59, 38, 19, 0.12);
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.status-floating {
+  position: absolute;
+  left: 0.35rem;
+  right: 0.35rem;
+  bottom: 0.35rem;
+  z-index: 8;
+  width: auto;
+  max-width: 44rem;
+  margin: 0 auto;
+  box-shadow: 0 0.45rem 1.2rem rgba(46, 29, 12, 0.14);
+  pointer-events: none;
+}
+
+.status-solved {
+  background: rgba(255, 244, 214, 0.96);
+  border-color: rgba(126, 82, 31, 0.3);
+  color: #3a220f;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  box-shadow:
+    0 0.55rem 1.5rem rgba(46, 29, 12, 0.18),
+    0 0 0 1px rgba(255, 235, 190, 0.45),
+    0 0 1.2rem rgba(233, 189, 96, 0.18);
+}
+
+@media (max-width: 640px) {
+  .status {
+    padding: 0.6rem 0.7rem;
+    font-size: 0.84rem;
+  }
+
+  .status-floating {
+    left: 0.2rem;
+    right: 0.2rem;
+    bottom: 0.2rem;
+  }
+}
