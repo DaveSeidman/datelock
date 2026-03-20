@@ -1,8 +1,10 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { BOARD_ROWS, MONTHS, PIECES, TRAY_SLOTS, WEEKDAYS } from './data/puzzle.js';
+import { BOARD_ROWS, MONTHS, PIECES, WEEKDAYS } from './data/puzzle.js';
 
 const TAP_ROTATE_MS = 280;
 const MOVE_THRESHOLD = 8;
+const DEBUG_DISABLE_PIECE_MOTION = true;
+const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
 const getTodaySelection = () => {
   const now = new Date();
@@ -29,6 +31,10 @@ const getPieceBounds = (cells) => {
 const transformPoint = ([x, y], rotation, flipX = false, flipY = false) => {
   let nextPoint = [x, y];
 
+  for (let index = 0; index < rotation; index += 1) {
+    nextPoint = [nextPoint[1], -nextPoint[0]];
+  }
+
   if (flipX) {
     nextPoint = [-nextPoint[0], nextPoint[1]];
   }
@@ -37,15 +43,15 @@ const transformPoint = ([x, y], rotation, flipX = false, flipY = false) => {
     nextPoint = [nextPoint[0], -nextPoint[1]];
   }
 
-  for (let index = 0; index < rotation; index += 1) {
-    nextPoint = [nextPoint[1], -nextPoint[0]];
-  }
-
   return nextPoint;
 };
 
 const getTransformedGeometry = (cells, pivot, rotation, flipX = false, flipY = false) => {
   let nextCells = cells;
+
+  for (let index = 0; index < rotation; index += 1) {
+    nextCells = nextCells.map(([x, y]) => [y, -x]);
+  }
 
   if (flipX) {
     nextCells = nextCells.map(([x, y]) => [-x, y]);
@@ -53,10 +59,6 @@ const getTransformedGeometry = (cells, pivot, rotation, flipX = false, flipY = f
 
   if (flipY) {
     nextCells = nextCells.map(([x, y]) => [x, -y]);
-  }
-
-  for (let index = 0; index < rotation; index += 1) {
-    nextCells = nextCells.map(([x, y]) => [y, -x]);
   }
 
   const bounds = getPieceBounds(nextCells);
@@ -105,6 +107,109 @@ const createInitialPlacements = () =>
   }, {});
 
 const cellKey = (row, col) => `${row}-${col}`;
+const BOARD_COLS = BOARD_ROWS[0].length;
+const getTrayCellSize = (trayRect) =>
+  trayRect.width <= 420 ? Math.min((window.innerWidth - 64) / 10, 32) : Math.min(window.innerWidth * 0.055, 40);
+
+const getPieceDimensions = (piece, rotation = 0, flipX = false, flipY = false) => {
+  const geometry = getTransformedGeometry(piece.cells, piece.pivot, rotation, flipX, flipY);
+  const bounds = getPieceBounds(geometry.cells);
+
+  return {
+    widthCells: bounds.maxX - bounds.minX + 1,
+    heightCells: bounds.maxY - bounds.minY + 1,
+  };
+};
+
+const packTrayLayout = (trayWidth, pieceUnit) => {
+  const padding = Math.max(8, pieceUnit * 0.3);
+  const gapX = Math.max(6, pieceUnit * 0.22);
+  const gapY = Math.max(8, pieceUnit * 0.28);
+  const availableWidth = Math.max(pieceUnit * 4, trayWidth - padding * 2);
+  const items = PIECES.map((piece) => {
+    const { widthCells, heightCells } = getPieceDimensions(piece);
+
+    return {
+      id: piece.id,
+      width: widthCells * pieceUnit,
+      height: heightCells * pieceUnit,
+      widthCells,
+      heightCells,
+      area: piece.cells.length,
+    };
+  }).sort((left, right) => {
+    if (right.heightCells !== left.heightCells) {
+      return right.heightCells - left.heightCells;
+    }
+
+    if (right.area !== left.area) {
+      return right.area - left.area;
+    }
+
+    return right.widthCells - left.widthCells;
+  });
+
+  const rows = [];
+  let currentRow = { items: [], width: 0, height: 0 };
+
+  items.forEach((item) => {
+    const nextWidth = currentRow.items.length
+      ? currentRow.width + gapX + item.width
+      : item.width;
+
+    if (currentRow.items.length && nextWidth > availableWidth) {
+      rows.push(currentRow);
+      currentRow = { items: [], width: 0, height: 0 };
+    }
+
+    currentRow.items.push(item);
+    currentRow.width = currentRow.items.length === 1 ? item.width : currentRow.width + gapX + item.width;
+    currentRow.height = Math.max(currentRow.height, item.height);
+  });
+
+  if (currentRow.items.length) {
+    rows.push(currentRow);
+  }
+
+  const positions = {};
+  let y = padding;
+
+  rows.forEach((row) => {
+    let x = padding + Math.max(0, (availableWidth - row.width) / 2);
+
+    row.items.forEach((item) => {
+      positions[item.id] = {
+        x,
+        y: y + (row.height - item.height) / 2,
+      };
+      x += item.width + gapX;
+    });
+
+    y += row.height + gapY;
+  });
+
+  return {
+    pieceUnit,
+    positions,
+    height: y - gapY + padding,
+  };
+};
+
+const buildTrayLayout = (trayRect) => {
+  if (!trayRect) {
+    return null;
+  }
+
+  const basePieceUnit = getTrayCellSize(trayRect);
+  let layout = packTrayLayout(trayRect.width, basePieceUnit);
+
+  if (trayRect.height && layout.height > trayRect.height) {
+    const scale = Math.max(0.72, (trayRect.height - 6) / layout.height);
+    layout = packTrayLayout(trayRect.width, basePieceUnit * scale);
+  }
+
+  return layout;
+};
 
 const isTargetCell = (cell, selection) =>
   cell.label === selection.month ||
@@ -127,16 +232,16 @@ function App() {
   const [activePieceId, setActivePieceId] = useState(null);
   const [layoutReady, setLayoutReady] = useState(false);
   const boardCells = useMemo(buildBoardCells, []);
-
-  const getBoardCell = (row, col) => boardCells.find((cell) => cell.row === row && cell.col === col);
-
-  const getDefaultTrayPosition = (traySlot) => {
-    const slot = TRAY_SLOTS[traySlot];
-    return {
-      x: 14 + slot.col * 108,
-      y: 14 + slot.row * 144,
-    };
-  };
+  const piecesById = useMemo(
+    () => Object.fromEntries(PIECES.map((piece) => [piece.id, piece])),
+    [],
+  );
+  const boardCellMap = useMemo(
+    () => new Map(boardCells.map((cell) => [cellKey(cell.row, cell.col), cell])),
+    [boardCells],
+  );
+  const trayLayout = layoutReady ? buildTrayLayout(trayRef.current?.getBoundingClientRect()) : null;
+  const getDefaultTrayPosition = (pieceId) => trayLayout?.positions[pieceId] ?? { x: 12, y: 12 };
 
   useLayoutEffect(() => {
     if (!layoutReady && gameRef.current && boardGridRef.current && trayRef.current) {
@@ -148,7 +253,107 @@ function App() {
     return rotatedCells.every(([x, y]) => {
       const row = placement.row + y;
       const col = placement.col + x;
-      return row >= 0 && row < BOARD_ROWS.length && col >= 0 && col < BOARD_ROWS[0].length;
+      return row >= 0 && row < BOARD_ROWS.length && col >= 0 && col < BOARD_COLS;
+    });
+  };
+
+  const clampTrayPosition = (x, y, width, height, pieceUnit) => {
+    const trayRect = trayRef.current?.getBoundingClientRect();
+
+    if (!trayRect || !pieceUnit) {
+      return { x, y };
+    }
+
+    const maxX = Math.max(0, trayRect.width - width * pieceUnit);
+    const maxY = Math.max(0, trayRect.height - height * pieceUnit);
+
+    return {
+      x: clamp(x, 0, maxX),
+      y: clamp(y, 0, maxY),
+    };
+  };
+
+  const preservePieceAnchor = (pieceId, currentPlacement, nextPlacement) => {
+    const piece = piecesById[pieceId];
+    const currentGeometry = getTransformedGeometry(
+      piece.cells,
+      piece.pivot,
+      currentPlacement.rotation,
+      currentPlacement.flipX,
+      currentPlacement.flipY,
+    );
+    const nextGeometry = getTransformedGeometry(
+      piece.cells,
+      piece.pivot,
+      nextPlacement.rotation,
+      nextPlacement.flipX,
+      nextPlacement.flipY,
+    );
+
+    if (currentPlacement.col !== null && currentPlacement.row !== null) {
+      return {
+        ...nextPlacement,
+        col: Math.round(currentPlacement.col + currentGeometry.pivot[0] - nextGeometry.pivot[0]),
+        row: Math.round(currentPlacement.row + currentGeometry.pivot[1] - nextGeometry.pivot[1]),
+      };
+    }
+
+    const currentBounds = getPieceBounds(currentGeometry.cells);
+    const currentWidth = currentBounds.maxX - currentBounds.minX + 1;
+    const nextBounds = getPieceBounds(nextGeometry.cells);
+    const nextWidth = nextBounds.maxX - nextBounds.minX + 1;
+    const nextHeight = nextBounds.maxY - nextBounds.minY + 1;
+    const pieceRect = pieceRefs.current[pieceId]?.getBoundingClientRect();
+    const trayRect = trayRef.current?.getBoundingClientRect();
+    const pieceUnit =
+      pieceRect?.width && currentWidth
+        ? pieceRect.width / currentWidth
+        : trayRect
+          ? getTrayCellSize(trayRect)
+          : 0;
+    const currentX = currentPlacement.trayX ?? getDefaultTrayPosition(pieceId).x;
+    const currentY = currentPlacement.trayY ?? getDefaultTrayPosition(pieceId).y;
+    const nextX = currentX + (currentGeometry.pivot[0] - nextGeometry.pivot[0]) * pieceUnit;
+    const nextY = currentY + (currentGeometry.pivot[1] - nextGeometry.pivot[1]) * pieceUnit;
+    const clampedPosition = clampTrayPosition(nextX, nextY, nextWidth, nextHeight, pieceUnit);
+
+    return {
+      ...nextPlacement,
+      trayX: clampedPosition.x,
+      trayY: clampedPosition.y,
+    };
+  };
+
+  const getPieceBoardCells = (piece, placement, geometryOverride = null) => {
+    if (placement.col === null || placement.row === null) {
+      return [];
+    }
+
+    const geometry =
+      geometryOverride ??
+      getTransformedGeometry(
+        piece.cells,
+        piece.pivot,
+        placement.rotation,
+        placement.flipX,
+        placement.flipY,
+      );
+
+    return geometry.cells.map(([x, y], index) => {
+      const row = placement.row + y;
+      const col = placement.col + x;
+      const onGrid = row >= 0 && row < BOARD_ROWS.length && col >= 0 && col < BOARD_COLS;
+      const key = onGrid ? cellKey(row, col) : null;
+      const boardCell = key ? boardCellMap.get(key) : null;
+
+      return {
+        index,
+        row,
+        col,
+        key,
+        onGrid,
+        playable: Boolean(boardCell?.playable),
+      };
     });
   };
 
@@ -183,26 +388,10 @@ function App() {
         PIECES.map((piece) => {
           const placement = placements[piece.id];
 
-          if (placement.col === null || placement.row === null) {
-            return [piece.id, []];
-          }
-
-          const cells = getTransformedGeometry(
-            piece.cells,
-            piece.pivot,
-            placement.rotation,
-            placement.flipX,
-            placement.flipY,
-          ).cells.map(([x, y]) => ({
-            row: placement.row + y,
-            col: placement.col + x,
-            key: cellKey(placement.row + y, placement.col + x),
-          }));
-
-          return [piece.id, cells];
+          return [piece.id, getPieceBoardCells(piece, placement)];
         }),
       ),
-    [placements],
+    [boardCellMap, placements],
   );
 
   const liveCellsByPiece = useMemo(() => {
@@ -213,7 +402,7 @@ function App() {
     }
 
     const boardRect = boardGridRef.current?.getBoundingClientRect();
-    const piece = PIECES.find((entry) => entry.id === dragState.pieceId);
+    const piece = piecesById[dragState.pieceId];
     const geometry = getTransformedGeometry(
       piece.cells,
       piece.pivot,
@@ -224,30 +413,18 @@ function App() {
     const projectedPlacement = getDropPlacement(dragState.pointerX, dragState.pointerY, boardRect, geometry.cells);
 
     result[dragState.pieceId] = projectedPlacement
-      ? geometry.cells.map(([x, y], index) => {
-          const row = projectedPlacement.row + y;
-          const col = projectedPlacement.col + x;
-          const inBounds = row >= 0 && row < BOARD_ROWS.length && col >= 0 && col < BOARD_ROWS[0].length;
-
-          return {
-            index,
-            row,
-            col,
-            key: inBounds ? cellKey(row, col) : null,
-            inBounds,
-          };
-        })
+      ? getPieceBoardCells(piece, projectedPlacement, geometry)
       : [];
 
     return result;
-  }, [dragState, placedCellsByPiece]);
+  }, [dragState, getPieceBoardCells, piecesById, placedCellsByPiece]);
 
   const liveOccupiedCounts = useMemo(() => {
     const counts = new Map();
 
     Object.values(liveCellsByPiece).forEach((cells) => {
-      cells.forEach(({ key, inBounds = true }) => {
-        if (!key || !inBounds) {
+      cells.forEach(({ key, onGrid = true }) => {
+        if (!key || !onGrid) {
           return;
         }
 
@@ -264,7 +441,7 @@ function App() {
     }
 
     const boardRect = boardRef.current?.getBoundingClientRect();
-    const piece = PIECES.find((entry) => entry.id === dragState.pieceId);
+    const piece = piecesById[dragState.pieceId];
     const rotatedCells = getTransformedGeometry(
       piece.cells,
       piece.pivot,
@@ -284,7 +461,7 @@ function App() {
       cells: rotatedCells,
       bounds: getPieceBounds(rotatedCells),
     };
-  }, [dragState, placements]);
+  }, [dragState, piecesById, placements]);
 
   const status = useMemo(() => {
     const playableCells = boardCells.filter((cell) => cell.playable);
@@ -298,7 +475,7 @@ function App() {
       coveredPlayableCells.length === playableCells.length - 3;
 
     if (solved) {
-      return `Solved for ${selection.month} ${selection.day}, ${selection.weekday}.`;
+      return `Solved for ${selection.month} ${selection.day} ${selection.weekday}.`;
     }
 
     if (coveredTargets.length > 0) {
@@ -310,6 +487,25 @@ function App() {
 
   useLayoutEffect(() => {
     if (!layoutReady) {
+      return;
+    }
+
+    if (DEBUG_DISABLE_PIECE_MOTION) {
+      const nextRects = {};
+
+      PIECES.forEach((piece) => {
+        const element = pieceRefs.current[piece.id];
+
+        if (!element || dragState?.pieceId === piece.id) {
+          return;
+        }
+
+        element.style.transition = 'none';
+        element.style.transform = 'translate(0px, 0px)';
+        nextRects[piece.id] = element.getBoundingClientRect();
+      });
+
+      previousRectsRef.current = nextRects;
       return;
     }
 
@@ -355,6 +551,14 @@ function App() {
       return;
     }
 
+    if (DEBUG_DISABLE_PIECE_MOTION) {
+      PIECES.forEach((piece) => {
+        pieceBodyRefs.current[piece.id]?.getAnimations().forEach((animation) => animation.cancel());
+      });
+      previousPlacementsRef.current = JSON.parse(JSON.stringify(placements));
+      return;
+    }
+
     PIECES.forEach((piece) => {
       const currentPlacement = placements[piece.id];
       const previousPlacement = previousPlacementsRef.current[piece.id];
@@ -384,15 +588,17 @@ function App() {
 
       if (currentPlacement.motion === 'flip-horizontal') {
         keyframes = [
-          { transform: 'scaleX(-1)' },
-          { transform: 'scaleX(1)' },
+          { transform: 'perspective(760px) rotateY(180deg) scale(0.98)' },
+          { transform: 'perspective(760px) rotateY(90deg) scale(0.94)', offset: 0.52 },
+          { transform: 'perspective(760px) rotateY(0deg) scale(1)' },
         ];
       }
 
       if (currentPlacement.motion === 'flip-vertical') {
         keyframes = [
-          { transform: 'scaleY(-1)' },
-          { transform: 'scaleY(1)' },
+          { transform: 'perspective(760px) rotateX(180deg) scale(0.98)' },
+          { transform: 'perspective(760px) rotateX(90deg) scale(0.94)', offset: 0.52 },
+          { transform: 'perspective(760px) rotateX(0deg) scale(1)' },
         ];
       }
 
@@ -439,7 +645,7 @@ function App() {
     const handlePointerUp = (event) => {
       const boardRect = boardRef.current?.getBoundingClientRect();
       const trayRect = trayRef.current?.getBoundingClientRect();
-      const piece = PIECES.find((entry) => entry.id === dragState.pieceId);
+      const piece = piecesById[dragState.pieceId];
       const rotatedCells = getTransformedGeometry(
         piece.cells,
         piece.pivot,
@@ -453,15 +659,25 @@ function App() {
         const now = Date.now();
 
         if (lastTouch.pieceId === dragState.pieceId && now - lastTouch.time < TAP_ROTATE_MS) {
-          setPlacements((current) => ({
-            ...current,
-            [dragState.pieceId]: {
-              ...current[dragState.pieceId],
-              rotation: (current[dragState.pieceId].rotation + 1) % 4,
-              motion: 'rotate-right',
-              motionNonce: current[dragState.pieceId].motionNonce + 1,
-            },
-          }));
+          setPlacements((current) => {
+            const nextPlacement = preservePieceAnchor(
+              dragState.pieceId,
+              current[dragState.pieceId],
+              {
+                ...current[dragState.pieceId],
+                rotation: (current[dragState.pieceId].rotation + 1) % 4,
+              },
+            );
+
+            return {
+              ...current,
+              [dragState.pieceId]: {
+                ...nextPlacement,
+                motion: 'rotate-right',
+                motionNonce: current[dragState.pieceId].motionNonce + 1,
+              },
+            };
+          });
           touchInfoRef.current = { pieceId: null, time: 0 };
         } else {
           touchInfoRef.current = { pieceId: dragState.pieceId, time: now };
@@ -473,12 +689,14 @@ function App() {
       }
 
       const nextPlacement = getDropPlacement(event.clientX, event.clientY, boardRect, rotatedCells);
+      const trayPieceUnit = trayLayout?.pieceUnit ?? (trayRect ? getTrayCellSize(trayRect) : 0);
       const nextTrayPosition = getTrayDropPosition(
         event.clientX,
         event.clientY,
         trayRect,
         dragState.width,
         dragState.height,
+        trayPieceUnit,
       );
 
       setPlacements((current) => {
@@ -531,13 +749,13 @@ function App() {
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
     };
-  }, [dragState, placements]);
+  }, [dragState, placements, preservePieceAnchor, piecesById, trayLayout]);
 
   const applyPieceTransform = (pieceId, updater, motion) => {
     setPlacements((current) => ({
       ...current,
       [pieceId]: {
-        ...updater(current[pieceId]),
+        ...preservePieceAnchor(pieceId, current[pieceId], updater(current[pieceId])),
         motion,
         motionNonce: current[pieceId].motionNonce + 1,
       },
@@ -563,11 +781,8 @@ function App() {
         event.preventDefault();
         applyPieceTransform(
           activePieceId,
-          (piece) =>
-            event.key === 'ArrowUp'
-              ? { ...piece, flipY: !piece.flipY }
-              : { ...piece, flipX: !piece.flipX },
-          event.key === 'ArrowUp' ? 'flip-vertical' : 'flip-horizontal',
+          (piece) => ({ ...piece, flipY: !piece.flipY }),
+          'flip-vertical',
         );
       }
     };
@@ -576,11 +791,32 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activePieceId]);
 
+  const rotatePieceLeft = (pieceId) =>
+    applyPieceTransform(
+      pieceId,
+      (piece) => ({ ...piece, rotation: (piece.rotation + 3) % 4 }),
+      'rotate-left',
+    );
+
   const rotatePieceRight = (pieceId) =>
     applyPieceTransform(
       pieceId,
       (piece) => ({ ...piece, rotation: (piece.rotation + 1) % 4 }),
       'rotate-right',
+    );
+
+  const flipPieceHorizontal = (pieceId) =>
+    applyPieceTransform(
+      pieceId,
+      (piece) => ({ ...piece, flipX: !piece.flipX }),
+      'flip-horizontal',
+    );
+
+  const flipPieceVertical = (pieceId) =>
+    applyPieceTransform(
+      pieceId,
+      (piece) => ({ ...piece, flipY: !piece.flipY }),
+      'flip-vertical',
     );
 
   const resetBoard = () => {
@@ -591,7 +827,7 @@ function App() {
   };
 
   const startDrag = (event, pieceId) => {
-    const piece = PIECES.find((entry) => entry.id === pieceId);
+    const piece = piecesById[pieceId];
     const placement = placements[pieceId];
     const rotatedCells = getTransformedGeometry(
       piece.cells,
@@ -629,8 +865,8 @@ function App() {
       originTrayPosition:
         placement.col === null
           ? {
-              x: placement.trayX ?? getDefaultTrayPosition(placement.traySlot).x,
-              y: placement.trayY ?? getDefaultTrayPosition(placement.traySlot).y,
+              x: placement.trayX ?? getDefaultTrayPosition(pieceId).x,
+              y: placement.trayY ?? getDefaultTrayPosition(pieceId).y,
             }
           : null,
       originBoardPosition:
@@ -647,7 +883,7 @@ function App() {
 
   const getPiecePlacementStyle = (pieceId) => {
     const placement = placements[pieceId];
-    const piece = PIECES.find((entry) => entry.id === pieceId);
+    const piece = piecesById[pieceId];
     const rotatedGeometry = getTransformedGeometry(
       piece.cells,
       piece.pivot,
@@ -696,13 +932,14 @@ function App() {
 
     const trayPosition =
       placement.trayX === undefined || placement.trayY === undefined
-        ? getDefaultTrayPosition(placement.traySlot)
+        ? getDefaultTrayPosition(pieceId)
         : { x: placement.trayX, y: placement.trayY };
+    const trayPieceUnit = trayLayout?.pieceUnit ?? (trayRect ? getTrayCellSize(trayRect) : 0);
 
     return {
       left: `${trayRect && gameRect ? trayRect.left - gameRect.left + trayPosition.x : trayPosition.x}px`,
       top: `${trayRect && gameRect ? trayRect.top - gameRect.top + trayPosition.y : trayPosition.y}px`,
-      '--piece-unit': 'var(--tray-cell)',
+      '--piece-unit': `${trayPieceUnit}px`,
       '--piece-width': width,
       '--piece-height': height,
       zIndex: activePieceId === pieceId ? 8 : 2,
@@ -710,7 +947,7 @@ function App() {
   };
 
   const renderPiece = (pieceId, area) => {
-    const piece = PIECES.find((entry) => entry.id === pieceId);
+    const piece = piecesById[pieceId];
     const placement = placements[pieceId];
     const rotatedGeometry = getTransformedGeometry(
       piece.cells,
@@ -722,9 +959,16 @@ function App() {
     const rotatedCells = rotatedGeometry.cells;
     const invalidSegmentIndexes = new Set(
       (liveCellsByPiece[pieceId] ?? [])
-        .filter(({ key, inBounds }) => !inBounds || (key && (liveOccupiedCounts.get(key) ?? 0) > 1))
+        .filter(
+          ({ key, onGrid, playable }) =>
+            !onGrid || !playable || (key && (liveOccupiedCounts.get(key) ?? 0) > 1),
+        )
         .map(({ index }) => index),
     );
+    const toolbarStyle = {
+      left: `calc((${rotatedGeometry.pivot[0]} + 0.5) * var(--piece-unit))`,
+      top: `calc((${rotatedGeometry.pivot[1]} + 0.5) * var(--piece-unit))`,
+    };
 
     return (
       <div
@@ -744,44 +988,18 @@ function App() {
         }}
         style={getPiecePlacementStyle(piece.id)}
         onPointerDown={(event) => startDrag(event, piece.id)}
+        onFocus={() => setActivePieceId(piece.id)}
         onDoubleClick={() => rotatePieceRight(piece.id)}
         onKeyDown={(event) => {
-          if (
-            event.key === 'ArrowLeft' ||
-            event.key === 'ArrowRight' ||
-            event.key === 'ArrowUp' ||
-            event.key === 'ArrowDown' ||
-            event.key === ' '
-          ) {
+          if (event.key === ' ' || event.key === 'Enter') {
             event.preventDefault();
             setActivePieceId(piece.id);
-
-            if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-              applyPieceTransform(
-                piece.id,
-                (current) => ({
-                  ...current,
-                  rotation: (current.rotation + (event.key === 'ArrowLeft' ? 3 : 1)) % 4,
-                }),
-                event.key === 'ArrowLeft' ? 'rotate-left' : 'rotate-right',
-              );
-            } else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
-              applyPieceTransform(
-                piece.id,
-                (current) =>
-                  event.key === 'ArrowUp'
-                    ? { ...current, flipY: !current.flipY }
-                    : { ...current, flipX: !current.flipX },
-                event.key === 'ArrowUp' ? 'flip-vertical' : 'flip-horizontal',
-              );
-            } else {
-              rotatePieceRight(piece.id);
-            }
+            rotatePieceRight(piece.id);
           }
         }}
         tabIndex={0}
         role="button"
-        aria-label={`${piece.name}. Drag to move. Double tap or double click to rotate right. Arrow left or right rotates. Arrow up flips vertically. Arrow down flips horizontally.`}
+        aria-label={`${piece.name}. Drag to move. Double tap or double click to rotate right. Arrow left or right rotates. Arrow up or down flips vertically. Use the on-piece controls for horizontal flip.`}
       >
         <div
           className="piece-body"
@@ -811,6 +1029,59 @@ function App() {
             />
           ))}
         </div>
+        {activePieceId === piece.id && dragState?.pieceId !== piece.id ? (
+          <div
+            className="piece-toolbar"
+            style={toolbarStyle}
+            onPointerDown={(event) => event.stopPropagation()}
+            onDoubleClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="piece-toolbar-button"
+              aria-label="Rotate left"
+              onClick={(event) => {
+                event.stopPropagation();
+                rotatePieceLeft(piece.id);
+              }}
+            >
+              RL
+            </button>
+            <button
+              type="button"
+              className="piece-toolbar-button"
+              aria-label="Rotate right"
+              onClick={(event) => {
+                event.stopPropagation();
+                rotatePieceRight(piece.id);
+              }}
+            >
+              RR
+            </button>
+            <button
+              type="button"
+              className="piece-toolbar-button"
+              aria-label="Flip horizontally"
+              onClick={(event) => {
+                event.stopPropagation();
+                flipPieceHorizontal(piece.id);
+              }}
+            >
+              FH
+            </button>
+            <button
+              type="button"
+              className="piece-toolbar-button"
+              aria-label="Flip vertically"
+              onClick={(event) => {
+                event.stopPropagation();
+                flipPieceVertical(piece.id);
+              }}
+            >
+              FV
+            </button>
+          </div>
+        ) : null}
       </div>
     );
   };
@@ -842,18 +1113,11 @@ function App() {
 
   return (
     <main className="app-shell">
-      <section className="hero">
-        <h1 className="hero-title">Caesar&apos;s Calendar Puzzle</h1>
-        <p className="hero-copy">
-          Arrange the wooden pieces so today&apos;s month, date, and weekday remain visible.
-        </p>
-      </section>
-
       <section className="controls">
         <div className="controls-field controls-field-static">
           <span>Today</span>
           <strong>
-            {selection.month} {selection.day}, {selection.weekday}
+            {selection.month} {selection.day} {selection.weekday}
           </strong>
         </div>
         <button className="controls-button controls-button-muted" type="button" onClick={resetBoard}>
@@ -886,16 +1150,9 @@ function App() {
               </div>
             </div>
           </div>
-          <p className="status" aria-live="polite">
-            {status}
-          </p>
         </div>
 
         <aside className="tray">
-          <div className="tray-header">
-            <h2>Pieces</h2>
-            <p>Drag to move. Arrow left or right rotates. Arrow up flips vertically. Arrow down flips horizontally.</p>
-          </div>
           <div ref={trayRef} className="tray-grid">
           </div>
         </aside>
@@ -913,6 +1170,9 @@ function App() {
         <div className="game-drag-layer">
           {layoutReady && dragState ? renderPiece(dragState.pieceId, placements[dragState.pieceId].col !== null ? 'board' : 'tray') : null}
         </div>
+        <p className="status status-floating" aria-live="polite">
+          {status}
+        </p>
       </section>
     </main>
   );
@@ -940,7 +1200,7 @@ function getDropPlacement(pointerX, pointerY, boardRect, rotatedCells) {
   return { col, row };
 }
 
-function getTrayDropPosition(pointerX, pointerY, trayRect, width, height) {
+function getTrayDropPosition(pointerX, pointerY, trayRect, width, height, pieceUnit) {
   if (!trayRect) {
     return null;
   }
@@ -952,7 +1212,7 @@ function getTrayDropPosition(pointerX, pointerY, trayRect, width, height) {
     return null;
   }
 
-  const cellSize = trayRect.width <= 420 ? Math.min((window.innerWidth - 58) / 7, 59.2) : Math.min(window.innerWidth * 0.07, 69.6);
+  const cellSize = pieceUnit || getTrayCellSize(trayRect);
   const rawX = pointerX - trayRect.left - (width * cellSize) / 2;
   const rawY = pointerY - trayRect.top - (height * cellSize) / 2;
   const maxX = Math.max(0, trayRect.width - width * cellSize);
