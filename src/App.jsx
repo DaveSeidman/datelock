@@ -18,7 +18,6 @@ import {
   getDropPlacement,
   getPieceBounds,
   getPieceDimensions,
-  getPointerAnchoredPosition,
   getTodaySelection,
   getTransformedGeometry,
   getViewportSize,
@@ -669,14 +668,17 @@ function App() {
         return;
       }
 
-      const nextPlacement = getDropPlacement(
-        event.clientX,
-        event.clientY,
-        boardRect,
-        rotatedCells,
-        dragState.pointerOffsetX,
-        dragState.pointerOffsetY,
-      );
+      const nextPlacement =
+        ghostPlacement?.pieceId === dragState.pieceId
+          ? ghostPlacement.placement
+          : getDropPlacement(
+              event.clientX,
+              event.clientY,
+              boardRect,
+              rotatedCells,
+              dragState.pointerOffsetX,
+              dragState.pointerOffsetY,
+            );
       const trayPieceUnit = trayLayout?.pieceUnit ?? (trayRect ? getTrayCellSize(trayRect) : 0);
       const nextTrayPosition = getTrayDropPosition(
         event.clientX,
@@ -765,7 +767,7 @@ function App() {
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
     };
-  }, [dragState, placements, preservePieceAnchor, piecesById, trayLayout]);
+  }, [dragState, ghostPlacement, placements, preservePieceAnchor, piecesById, trayLayout]);
 
   const applyPieceTransform = (pieceId, updater, motion) => {
     setPlacements((current) => ({
@@ -816,14 +818,14 @@ function App() {
     piecesById[pieceId]?.canFlip === false
       ? null
       : applyPieceTransform(
-          pieceId,
-          (piece) => ({
-            ...piece,
-            rotation: (piece.rotation + 2) % 4,
-            mirrored: !piece.mirrored,
-          }),
-          'flip-vertical',
-        );
+        pieceId,
+        (piece) => ({
+          ...piece,
+          rotation: (piece.rotation + 2) % 4,
+          mirrored: !piece.mirrored,
+        }),
+        'flip-vertical',
+      );
 
   const sendPieceToTray = (pieceId) => {
     setPlacements((current) =>
@@ -957,16 +959,16 @@ function App() {
       originTrayPosition:
         placement.col === null
           ? {
-              x: placement.trayX ?? getDefaultTrayPosition(pieceId).x,
-              y: placement.trayY ?? getDefaultTrayPosition(pieceId).y,
-            }
+            x: placement.trayX ?? getDefaultTrayPosition(pieceId).x,
+            y: placement.trayY ?? getDefaultTrayPosition(pieceId).y,
+          }
           : null,
       originBoardPosition:
         placement.col !== null
           ? {
-              col: placement.col,
-              row: placement.row,
-            }
+            col: placement.col,
+            row: placement.row,
+          }
           : null,
     };
 

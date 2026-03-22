@@ -42,6 +42,20 @@ export const getPieceBounds = (cells) => {
   };
 };
 
+export const annotateCells = (cells) => {
+  const occupied = new Set(cells.map(([x, y]) => `${x}:${y}`));
+
+  return cells.map(([x, y], index) => ({
+    index,
+    x,
+    y,
+    hasTop: occupied.has(`${x}:${y - 1}`),
+    hasRight: occupied.has(`${x + 1}:${y}`),
+    hasBottom: occupied.has(`${x}:${y + 1}`),
+    hasLeft: occupied.has(`${x - 1}:${y}`),
+  }));
+};
+
 export const getBoundsPivot = (cells) => {
   const bounds = getPieceBounds(cells);
 
@@ -154,6 +168,7 @@ export function getDropPlacement(pointerX, pointerY, boardRect, rotatedCells, po
   }
 
   const cellSize = boardRect.width / 7;
+  const boardTolerance = cellSize * 0.58;
   const anchoredPosition =
     typeof pointerOffsetX === 'number' && typeof pointerOffsetY === 'number'
       ? getPointerAnchoredPosition(pointerX, pointerY, pointerOffsetX, pointerOffsetY)
@@ -168,21 +183,24 @@ export function getDropPlacement(pointerX, pointerY, boardRect, rotatedCells, po
   const projectedRight = projectedLeft + width * cellSize;
   const projectedBottom = projectedTop + height * cellSize;
   const intersectsBoard =
-    projectedRight > boardRect.left &&
-    projectedLeft < boardRect.right &&
-    projectedBottom > boardRect.top &&
-    projectedTop < boardRect.bottom;
+    projectedRight > boardRect.left - boardTolerance &&
+    projectedLeft < boardRect.right + boardTolerance &&
+    projectedBottom > boardRect.top - boardTolerance &&
+    projectedTop < boardRect.bottom + boardTolerance;
 
   if (!intersectsBoard) {
     return null;
   }
 
-  const col = anchoredPosition ? Math.round(boardX / cellSize) : Math.round((boardX - (width * cellSize) / 2) / cellSize);
-  const row = anchoredPosition ? Math.round(boardY / cellSize) : Math.round((boardY - (height * cellSize) / 2) / cellSize);
+  const rawCol = anchoredPosition ? Math.round(boardX / cellSize) : Math.round((boardX - (width * cellSize) / 2) / cellSize);
+  const rawRow = anchoredPosition ? Math.round(boardY / cellSize) : Math.round((boardY - (height * cellSize) / 2) / cellSize);
 
-  if (Number.isNaN(col) || Number.isNaN(row)) {
+  if (Number.isNaN(rawCol) || Number.isNaN(rawRow)) {
     return null;
   }
 
-  return { col, row };
+  return {
+    col: clamp(rawCol, 0, Math.max(0, BOARD_COLS - width)),
+    row: clamp(rawRow, 0, Math.max(0, BOARD_ROWS.length - height)),
+  };
 }
