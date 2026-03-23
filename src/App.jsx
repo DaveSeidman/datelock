@@ -923,11 +923,19 @@ function App() {
     setActivePieceId(pieceId);
   };
 
-  const resetBoard = () => {
+  const clearBoard = () => {
+    setPlacements(createInitialPlacements());
+    setDragState(null);
+    setActivePieceId(null);
+    touchInfoRef.current = { pieceId: null, time: 0 };
+  };
+
+  const restartGame = () => {
     setPlacements(createInitialPlacements());
     setDragState(null);
     setActivePieceId(null);
     resetTimer();
+    setShowConfetti(false);
     setAttractMode('start');
     setShareFeedback('idle');
     touchInfoRef.current = { pieceId: null, time: 0 };
@@ -1078,7 +1086,7 @@ function App() {
         timerText={timerText}
         onStart={() => {
           if (attractMode === 'solved') {
-            resetBoard();
+            restartGame();
             setShowAttractScreen(false);
             return;
           }
@@ -1094,7 +1102,8 @@ function App() {
         isSolved={isSolved}
         timerText={timerText}
         status={status}
-        onReset={resetBoard}
+        onReset={clearBoard}
+        showAttractScreen={showAttractScreen}
       />
 
       <div className="app-share-corner">

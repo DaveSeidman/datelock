@@ -8,6 +8,7 @@ function usePuzzleTimer({ hasPuzzleStarted, isSolved, onRequestResumeOverlay }) 
   const [pausedDurationMs, setPausedDurationMs] = useState(0);
   const timerPausedAtRef = useRef(null);
   const shouldShowResumeOverlayRef = useRef(false);
+  const hasActiveRun = hasPuzzleStarted || timerStartedAt !== null;
 
   const getCurrentElapsedSeconds = (now) => {
     if (!timerStartedAt) {
@@ -85,11 +86,11 @@ function usePuzzleTimer({ hasPuzzleStarted, isSolved, onRequestResumeOverlay }) 
       timerPausedAtRef.current = now;
       setElapsedSeconds(getCurrentElapsedSeconds(now));
       setTimerPausedAt(now);
-      shouldShowResumeOverlayRef.current = hasPuzzleStarted;
+      shouldShowResumeOverlayRef.current = hasActiveRun;
     };
 
     const requestResumeOverlay = () => {
-      if (document.visibilityState === 'visible' && shouldShowResumeOverlayRef.current && hasPuzzleStarted && !isSolved) {
+      if (document.visibilityState === 'visible' && shouldShowResumeOverlayRef.current && hasActiveRun && !isSolved) {
         onRequestResumeOverlay?.();
       }
     };
@@ -112,7 +113,7 @@ function usePuzzleTimer({ hasPuzzleStarted, isSolved, onRequestResumeOverlay }) 
       window.removeEventListener('focus', requestResumeOverlay);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [hasPuzzleStarted, isSolved, onRequestResumeOverlay, pausedDurationMs, timerStartedAt]);
+  }, [hasActiveRun, hasPuzzleStarted, isSolved, onRequestResumeOverlay, pausedDurationMs, timerStartedAt]);
 
   return {
     elapsedSeconds,

@@ -1,3 +1,9 @@
+.controls-wrap {
+  position: relative;
+  z-index: 20;
+  isolation: isolate;
+}
+
 .controls {
   display: flex;
   align-items: center;
@@ -70,9 +76,10 @@
     top: calc(100% + 0.3rem);
     right: 0;
     width: min(28rem, calc(100vw - 0.8rem));
-    z-index: 2;
+    z-index: 24;
     max-height: min(24rem, calc(100dvh - 5rem));
     overflow: auto;
+    pointer-events: auto;
   }
 
   &-button {
@@ -147,6 +154,7 @@
       right: 0.35rem;
       width: auto;
       max-height: min(20rem, calc(100dvh - 4rem));
+      z-index: 24;
     }
 
     &-button {
