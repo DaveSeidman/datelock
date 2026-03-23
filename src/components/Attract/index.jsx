@@ -66,6 +66,7 @@ function Attract({
   selection,
   timerText,
   onStart,
+  onClose,
   onShare,
 }) {
   const isResumeMode = attractMode === 'resume';
@@ -126,6 +127,14 @@ function Attract({
         aria-hidden={!showAttractScreen}
       >
         <div className="attract-panel">
+          <button
+            type="button"
+            className="attract-close"
+            aria-label="Close"
+            onClick={onClose}
+          >
+            ×
+          </button>
           <p className="attract-kicker">
             {isSolvedMode ? 'Puzzle Solved' : isResumeMode ? 'Game Paused' : 'Daily Logic Puzzle'}
           </p>

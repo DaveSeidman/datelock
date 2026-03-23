@@ -11,32 +11,40 @@ function Header({
   timerText,
   status,
   onReset,
+  onAutoSolve,
   showAttractScreen,
 }) {
-  const [showInfo, setShowInfo] = useState(false);
-  const infoPanelRef = useRef(null);
+  const [showInfoMenu, setShowInfoMenu] = useState(false);
+  const [infoView, setInfoView] = useState(null);
+  const menuPanelRef = useRef(null);
+  const detailPanelRef = useRef(null);
   const infoButtonRef = useRef(null);
+  const closeInfo = () => {
+    setShowInfoMenu(false);
+    setInfoView(null);
+  };
 
   useEffect(() => {
     if (showAttractScreen) {
-      setShowInfo(false);
+      closeInfo();
     }
   }, [showAttractScreen]);
 
   useEffect(() => {
-    if (!showInfo) {
+    if (!showInfoMenu && !infoView) {
       return undefined;
     }
 
     const handlePointerDown = (event) => {
       if (
-        infoPanelRef.current?.contains(event.target) ||
+        menuPanelRef.current?.contains(event.target) ||
+        detailPanelRef.current?.contains(event.target) ||
         infoButtonRef.current?.contains(event.target)
       ) {
         return;
       }
 
-      setShowInfo(false);
+      closeInfo();
     };
 
     window.addEventListener('pointerdown', handlePointerDown);
@@ -44,7 +52,7 @@ function Header({
     return () => {
       window.removeEventListener('pointerdown', handlePointerDown);
     };
-  }, [showInfo]);
+  }, [infoView, showInfoMenu]);
 
   return (
     <section className="controls-wrap">
@@ -59,26 +67,83 @@ function Header({
             Reset
           </button>
           <button
-            className={`controls-button controls-button-muted controls-button-info ${showInfo ? 'controls-button-info-open' : ''}`}
+            className={`controls-button controls-button-muted controls-button-info ${showInfoMenu ? 'controls-button-info-open' : ''}`}
             type="button"
             ref={infoButtonRef}
-            aria-expanded={showInfo}
-            aria-controls="instructions-panel"
-            aria-label={showInfo ? 'Hide instructions' : 'Show instructions'}
-            onClick={() => setShowInfo((current) => !current)}
+            aria-expanded={showInfoMenu}
+            aria-controls="instructions-menu"
+            aria-label={showInfoMenu ? 'Hide menu' : 'Show menu'}
+            onClick={() => {
+              if (showInfoMenu) {
+                closeInfo();
+                return;
+              }
+
+              setShowInfoMenu(true);
+              setInfoView(null);
+            }}
           >
             <span aria-hidden="true">i</span>
           </button>
         </div>
       </section>
-      {showInfo ? (
+      {showInfoMenu ? (
+        <div
+          id="instructions-menu"
+          ref={menuPanelRef}
+          className="controls-menu-panel"
+        >
+          <button
+            type="button"
+            className={`controls-menu-item ${infoView === 'instructions' ? 'controls-menu-item-active' : ''}`}
+            onClick={() => setInfoView((current) => (current === 'instructions' ? null : 'instructions'))}
+          >
+            How to play
+          </button>
+          <button
+            type="button"
+            className={`controls-menu-item ${infoView === 'auto-solve' ? 'controls-menu-item-active' : ''}`}
+            onClick={() => setInfoView('auto-solve')}
+          >
+            Auto solve
+          </button>
+        </div>
+      ) : null}
+      {showInfoMenu && infoView === 'instructions' ? (
         <div
           id="instructions-panel"
-          ref={infoPanelRef}
+          ref={detailPanelRef}
           className="controls-info-panel"
-          onClick={() => setShowInfo(false)}
+          onClick={closeInfo}
         >
           <Instructions status={status} isSolved={isSolved} />
+        </div>
+      ) : null}
+      {showInfoMenu && infoView === 'auto-solve' ? (
+        <div
+          ref={detailPanelRef}
+          className="controls-confirm-panel"
+        >
+          <p className="controls-confirm-copy">Are you sure?</p>
+          <div className="controls-confirm-actions">
+            <button
+              type="button"
+              className="controls-button controls-button-confirm"
+              onClick={() => {
+                closeInfo();
+                onAutoSolve();
+              }}
+            >
+              Auto solve
+            </button>
+            <button
+              type="button"
+              className="controls-button controls-button-muted"
+              onClick={() => setInfoView(null)}
+            >
+              Cancel
+            </button>
+          </div>
         </div>
       ) : null}
     </section>

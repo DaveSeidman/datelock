@@ -73,13 +73,68 @@
 
   &-info-panel {
     position: absolute;
-    top: calc(100% + 0.3rem);
+    top: calc(100% + 3.35rem);
     right: 0;
     width: min(28rem, calc(100vw - 0.8rem));
     z-index: 24;
     max-height: min(24rem, calc(100dvh - 5rem));
     overflow: auto;
     pointer-events: auto;
+  }
+
+  &-menu-panel,
+  &-confirm-panel {
+    position: absolute;
+    top: calc(100% + 0.3rem);
+    right: 0;
+    width: min(16rem, calc(100vw - 0.8rem));
+    z-index: 24;
+    padding: 0.4rem;
+    border-radius: 1rem;
+    background: rgba(255, 249, 238, 0.96);
+    border: 1px solid rgba(59, 38, 19, 0.12);
+    box-shadow: 0 0.45rem 1.2rem rgba(46, 29, 12, 0.14);
+    pointer-events: auto;
+  }
+
+  &-menu-item {
+    width: 100%;
+    min-height: 2.45rem;
+    border: 0;
+    border-radius: 0.8rem;
+    background: transparent;
+    color: #21170f;
+    text-align: left;
+    font-weight: 700;
+    cursor: pointer;
+
+    &:hover,
+    &:focus-visible,
+    &-active {
+      background: rgba(215, 163, 90, 0.18);
+      outline: none;
+    }
+
+    & + & {
+      margin-top: 0.24rem;
+    }
+  }
+
+  &-confirm {
+    &-copy {
+      margin: 0 0 0.55rem;
+      font-weight: 700;
+    }
+
+    &-actions {
+      display: flex;
+      gap: 0.45rem;
+
+      .controls-button {
+        flex: 1;
+        min-height: 2.3rem;
+      }
+    }
   }
 
   &-button {
@@ -113,6 +168,10 @@
           inset 0 0 0 1px rgba(233, 189, 96, 0.18),
           0 0.45rem 1rem rgba(72, 45, 16, 0.12);
       }
+    }
+
+    &-confirm {
+      background: linear-gradient(180deg, #f6d59f, #d7a35a);
     }
   }
 }
@@ -149,12 +208,20 @@
 
     &-info-panel {
       position: fixed;
-      top: max(3.25rem, calc(env(safe-area-inset-top, 0px) + 3rem));
+      top: max(6.35rem, calc(env(safe-area-inset-top, 0px) + 6rem));
       left: 0.35rem;
       right: 0.35rem;
       width: auto;
       max-height: min(20rem, calc(100dvh - 4rem));
       z-index: 24;
+    }
+
+    &-menu-panel,
+    &-confirm-panel {
+      position: fixed;
+      top: max(3.25rem, calc(env(safe-area-inset-top, 0px) + 3rem));
+      right: 0.35rem;
+      width: min(14rem, calc(100vw - 0.7rem));
     }
 
     &-button {

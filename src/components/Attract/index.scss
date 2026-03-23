@@ -45,6 +45,7 @@
   }
 
   &-panel {
+    position: relative;
     width: min(100%, 34rem);
     padding: clamp(1.2rem, 3vw, 2rem);
     border-radius: 1.6rem;
@@ -220,6 +221,28 @@
       box-shadow: inset 0 0 0 1px rgba(255, 233, 189, 0.14);
     }
   }
+
+  &-close {
+    position: absolute;
+    top: 0.7rem;
+    right: 0.7rem;
+    width: 2.15rem;
+    height: 2.15rem;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(255, 247, 229, 0.08);
+    color: #f8e9ca;
+    box-shadow: inset 0 0 0 1px rgba(255, 233, 189, 0.14);
+    cursor: pointer;
+    font-size: 1.2rem;
+    line-height: 1;
+
+    &:hover,
+    &:focus-visible {
+      background: rgba(255, 247, 229, 0.14);
+      outline: none;
+    }
+  }
 }
 
 @media (max-width: 640px) {
@@ -229,6 +252,14 @@
     &-panel {
       padding: 1rem 0.9rem;
       border-radius: 1.2rem;
+    }
+
+    &-close {
+      top: 0.45rem;
+      right: 0.45rem;
+      width: 1.9rem;
+      height: 1.9rem;
+      font-size: 1.05rem;
     }
 
     &-graphic {

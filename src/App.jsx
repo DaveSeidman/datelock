@@ -25,6 +25,7 @@ import {
   isPlacementPristine,
   isTargetCell,
 } from './lib/puzzleGeometry.js';
+import { solveDailyPuzzle } from './lib/puzzleSolver.js';
 import { copyTextFallback } from './lib/share.js';
 import { buildTrayLayout, clampTrayPosition as clampTrayPositionToBounds, getTrayCellSize, getTrayDropPosition } from './lib/trayLayout.js';
 
@@ -44,6 +45,7 @@ function App() {
   const trayMetricsRef = useRef(null);
   const touchInfoRef = useRef({ pieceId: null, time: 0 });
   const shareFeedbackTimeoutRef = useRef(null);
+  const autoSolveTimeoutsRef = useRef([]);
   const wasSolvedRef = useRef(false);
   const [selection] = useState(getTodaySelection);
   const [placements, setPlacements] = useState(createInitialPlacements);
@@ -57,6 +59,7 @@ function App() {
   const [confettiBurstKey, setConfettiBurstKey] = useState(0);
   const [sharePulseKey, setSharePulseKey] = useState(0);
   const [shareFeedback, setShareFeedback] = useState('idle');
+  const [isAutoSolving, setIsAutoSolving] = useState(false);
   const boardCells = useMemo(buildBoardCells, []);
   const piecesById = useMemo(
     () => Object.fromEntries(PIECES.map((piece) => [piece.id, piece])),
@@ -549,6 +552,17 @@ function App() {
     resumeTimer();
   };
 
+  const closeAttractScreen = () => {
+    setShowAttractScreen(false);
+
+    if (attractMode === 'solved') {
+      setShowConfetti(false);
+      return;
+    }
+
+    resumeTimer();
+  };
+
   useEffect(() => {
     let resizeFrame = null;
 
@@ -662,6 +676,9 @@ function App() {
       if (shareFeedbackTimeoutRef.current) {
         window.clearTimeout(shareFeedbackTimeoutRef.current);
       }
+
+      autoSolveTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
+      autoSolveTimeoutsRef.current = [];
     },
     [],
   );
@@ -840,6 +857,10 @@ function App() {
   }, [dragState, ghostPlacement, placements, preservePieceAnchor, piecesById, trayLayout]);
 
   const applyPieceTransform = (pieceId, updater, motion) => {
+    if (isAutoSolving) {
+      return;
+    }
+
     setPlacements((current) => ({
       ...current,
       [pieceId]: {
@@ -885,6 +906,10 @@ function App() {
     );
 
   const rotatePieceRightAtPointer = (event, fallbackPieceId) => {
+    if (isAutoSolving) {
+      return;
+    }
+
     const resolvedPieceId = resolvePieceAtPoint(event.clientX, event.clientY, fallbackPieceId);
 
     if (!resolvedPieceId) {
@@ -908,6 +933,10 @@ function App() {
       );
 
   const sendPieceToTray = (pieceId) => {
+    if (isAutoSolving) {
+      return;
+    }
+
     setPlacements((current) =>
       reflowTrayPieces({
         ...current,
@@ -923,7 +952,14 @@ function App() {
     setActivePieceId(pieceId);
   };
 
+  const clearAutoSolveSequence = () => {
+    autoSolveTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
+    autoSolveTimeoutsRef.current = [];
+    setIsAutoSolving(false);
+  };
+
   const clearBoard = () => {
+    clearAutoSolveSequence();
     setPlacements(createInitialPlacements());
     setDragState(null);
     setActivePieceId(null);
@@ -931,6 +967,7 @@ function App() {
   };
 
   const restartGame = () => {
+    clearAutoSolveSequence();
     setPlacements(createInitialPlacements());
     setDragState(null);
     setActivePieceId(null);
@@ -944,6 +981,61 @@ function App() {
       window.clearTimeout(shareFeedbackTimeoutRef.current);
       shareFeedbackTimeoutRef.current = null;
     }
+  };
+
+  const autoSolvePuzzle = () => {
+    const solution = solveDailyPuzzle({
+      boardCells,
+      pieces: PIECES,
+      selection,
+    });
+
+    if (!solution) {
+      return;
+    }
+
+    clearAutoSolveSequence();
+    setIsAutoSolving(true);
+    setDragState(null);
+    setActivePieceId(null);
+
+    const orderedSolution = PIECES.map((piece) => solution[piece.id]).filter(Boolean);
+
+    orderedSolution.forEach((candidate, index) => {
+      const timeoutId = window.setTimeout(() => {
+        setPlacements((current) => ({
+          ...current,
+          [candidate.pieceId]: {
+            ...current[candidate.pieceId],
+            rotation: candidate.rotation,
+            mirrored: candidate.mirrored,
+            col: candidate.col,
+            row: candidate.row,
+            boardAnchorX: candidate.col + candidate.pivot[0],
+            boardAnchorY: candidate.row + candidate.pivot[1],
+            motion:
+              candidate.mirrored !== current[candidate.pieceId].mirrored
+                ? 'flip-vertical'
+                : candidate.rotation !== current[candidate.pieceId].rotation
+                  ? 'rotate-right'
+                  : null,
+            motionNonce: current[candidate.pieceId].motionNonce + 1,
+          },
+        }));
+        setActivePieceId(candidate.pieceId);
+
+        if (index === orderedSolution.length - 1) {
+          const finishTimeoutId = window.setTimeout(() => {
+            setActivePieceId(null);
+            setIsAutoSolving(false);
+          }, 220);
+
+          autoSolveTimeoutsRef.current.push(finishTimeoutId);
+        }
+      }, 180 + index * 320);
+
+      autoSolveTimeoutsRef.current.push(timeoutId);
+    });
   };
 
   const shareLink = async ({ title, text, trackFeedback = false }) => {
@@ -1007,6 +1099,10 @@ function App() {
   };
 
   const startDrag = (event, pieceId) => {
+    if (isAutoSolving) {
+      return;
+    }
+
     const resolvedPieceId = resolvePieceAtPoint(event.clientX, event.clientY, pieceId);
 
     if (!resolvedPieceId) {
@@ -1093,6 +1189,7 @@ function App() {
 
           dismissAttractScreen();
         }}
+        onClose={closeAttractScreen}
         onShare={attractMode === 'solved' ? handleShare : handleShareWithFriend}
       />
 
@@ -1103,6 +1200,7 @@ function App() {
         timerText={timerText}
         status={status}
         onReset={clearBoard}
+        onAutoSolve={autoSolvePuzzle}
         showAttractScreen={showAttractScreen}
       />
 
