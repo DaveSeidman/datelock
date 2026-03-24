@@ -67,6 +67,7 @@ function Attract({
   timerText,
   onStart,
   onClose,
+  canShareSolvedTime,
   onShare,
 }) {
   const isResumeMode = attractMode === 'resume';
@@ -199,7 +200,7 @@ function Attract({
               {isSolvedMode ? 'Play Again' : isResumeMode ? 'Continue Game' : 'Play Today\'s Puzzle'}
             </button>
             <button type="button" className="attract-button attract-button-secondary" onClick={onShare}>
-              {isSolvedMode ? 'Share Your Time' : 'Share with a Friend'}
+              {isSolvedMode && canShareSolvedTime ? 'Share Your Time' : 'Share with a Friend'}
             </button>
           </div>
         </div>

@@ -60,6 +60,7 @@ function App() {
   const [sharePulseKey, setSharePulseKey] = useState(0);
   const [shareFeedback, setShareFeedback] = useState('idle');
   const [isAutoSolving, setIsAutoSolving] = useState(false);
+  const [hasUsedAutoSolve, setHasUsedAutoSolve] = useState(false);
   const boardCells = useMemo(buildBoardCells, []);
   const piecesById = useMemo(
     () => Object.fromEntries(PIECES.map((piece) => [piece.id, piece])),
@@ -923,14 +924,26 @@ function App() {
     piecesById[pieceId]?.canFlip === false
       ? null
       : applyPieceTransform(
-        pieceId,
-        (piece) => ({
-          ...piece,
-          rotation: (piece.rotation + 2) % 4,
-          mirrored: !piece.mirrored,
-        }),
-        'flip-vertical',
-      );
+          pieceId,
+          (piece) => ({
+            ...piece,
+            rotation: (piece.rotation + 2) % 4,
+            mirrored: !piece.mirrored,
+          }),
+          'flip-vertical',
+        );
+
+  const flipPieceHorizontal = (pieceId) =>
+    piecesById[pieceId]?.canFlip === false
+      ? null
+      : applyPieceTransform(
+          pieceId,
+          (piece) => ({
+            ...piece,
+            mirrored: !piece.mirrored,
+          }),
+          'flip-horizontal',
+        );
 
   const sendPieceToTray = (pieceId) => {
     if (isAutoSolving) {
@@ -975,6 +988,7 @@ function App() {
     setShowConfetti(false);
     setAttractMode('start');
     setShareFeedback('idle');
+    setHasUsedAutoSolve(false);
     touchInfoRef.current = { pieceId: null, time: 0 };
 
     if (shareFeedbackTimeoutRef.current) {
@@ -996,6 +1010,7 @@ function App() {
 
     clearAutoSolveSequence();
     setIsAutoSolving(true);
+    setHasUsedAutoSolve(true);
     setDragState(null);
     setActivePieceId(null);
 
@@ -1082,9 +1097,11 @@ function App() {
   };
 
   const handleShare = async () => {
+    const shouldUseSolvedShare = isSolved && !hasUsedAutoSolve;
+
     await shareLink({
       title: SHARE_PUZZLE_NAME,
-      text: isSolved
+      text: shouldUseSolvedShare
         ? `I solved today's ${SHARE_PUZZLE_NAME} puzzle in ${timerText}\n${SHARE_URL}`
         : `Try ${SHARE_PUZZLE_NAME} the puzzle that changes every day!\n${SHARE_URL}`,
       trackFeedback: true,
@@ -1190,6 +1207,7 @@ function App() {
           dismissAttractScreen();
         }}
         onClose={closeAttractScreen}
+        canShareSolvedTime={!hasUsedAutoSolve}
         onShare={attractMode === 'solved' ? handleShare : handleShareWithFriend}
       />
 
@@ -1270,6 +1288,7 @@ function App() {
               boardGridRect={boardGridRect}
               onSendToTray={sendPieceToTray}
               onRotateRight={rotatePieceRight}
+              onFlipHorizontal={flipPieceHorizontal}
               onFlipVertical={flipPieceVertical}
             />
           ) : null}

@@ -9,6 +9,7 @@ function PieceControlsOverlay({
   boardGridRect,
   onSendToTray,
   onRotateRight,
+  onFlipHorizontal,
   onFlipVertical,
 }) {
   if (!activePieceId || dragPieceId === activePieceId) {
@@ -98,20 +99,36 @@ function PieceControlsOverlay({
         ↻
       </button>
       {piece.canFlip !== false ? (
-        <button
-          type="button"
-          className="piece-control piece-control-flip-vertical"
-          aria-label="Flip vertically"
-          style={getControlStyle(
-            left + pieceWidth - controlSize + controlOffset,
-            top + pieceHeight - controlSize + controlOffset,
-          )}
-          onPointerDown={handleControlPointerDown}
-          onDoubleClick={handleControlDoubleClick}
-          onClick={(event) => handleControlClick(event, () => onFlipVertical(piece.id))}
-        >
-          ⇅
-        </button>
+        <>
+          <button
+            type="button"
+            className="piece-control piece-control-flip-vertical"
+            aria-label="Flip vertically"
+            style={getControlStyle(
+              left + pieceWidth - controlSize + controlOffset,
+              top + pieceHeight * 0.62 - controlSize / 2,
+            )}
+            onPointerDown={handleControlPointerDown}
+            onDoubleClick={handleControlDoubleClick}
+            onClick={(event) => handleControlClick(event, () => onFlipVertical(piece.id))}
+          >
+            ⇵
+          </button>
+          <button
+            type="button"
+            className="piece-control piece-control-flip-horizontal"
+            aria-label="Flip horizontally"
+            style={getControlStyle(
+              left + pieceWidth * 0.5 - controlSize / 2,
+              top + pieceHeight - controlSize + controlOffset,
+            )}
+            onPointerDown={handleControlPointerDown}
+            onDoubleClick={handleControlDoubleClick}
+            onClick={(event) => handleControlClick(event, () => onFlipHorizontal(piece.id))}
+          >
+            ⇄
+          </button>
+        </>
       ) : null}
     </div>
   );
